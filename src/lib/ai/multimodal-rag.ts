@@ -247,6 +247,11 @@ export class MultimodalRAGService {
     }
   }
 
+  // Public method for generating image embeddings (for feedback system)
+  async generateImageEmbedding(imageBase64: string): Promise<number[]> {
+    return await this.getImageEmbedding(imageBase64);
+  }
+
   private async detectComponentsInImage(imageBase64: string): Promise<string> {
     try {
       const response = await openai.chat.completions.create({
