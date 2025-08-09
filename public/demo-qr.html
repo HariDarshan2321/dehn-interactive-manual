@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Demo QR Code</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+        .qr-container { display: inline-block; border: 2px solid #333; padding: 20px; margin: 20px; }
+    </style>
+</head>
+<body>
+    <h1>DEHN Product Demo QR Code</h1>
+    <div class="qr-container">
+        <div id="qrcode"></div>
+        <p><strong>DEHNbloc Maxi DBM 1 CI 760 FM</strong></p>
+        <p>Scan this QR code with the app to access the installation manual</p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+        QRCode.toCanvas(document.getElementById('qrcode'), 'http://localhost:3001/manual/dehn-dbm1', {
+            width: 200,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,172 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: Inter, system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-dehn-light text-gray-900;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-dehn-primary hover:bg-dehn-secondary text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 touch-target;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg transition-colors duration-200 touch-target;
+  }
+  
+  .btn-accent {
+    @apply bg-dehn-accent hover:bg-orange-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 touch-target;
+  }
+  
+  .card {
+    @apply bg-white rounded-xl shadow-lg p-6 border border-gray-100;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-dehn-secondary focus:border-transparent touch-target;
+  }
+  
+  .language-flag {
+    @apply w-12 h-8 rounded object-cover border border-gray-200;
+  }
+  
+  .safety-warning {
+    @apply bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg;
+  }
+  
+  .detection-overlay {
+    @apply absolute border-2 rounded-lg pointer-events-none;
+  }
+  
+  .detection-success {
+    @apply border-green-500 bg-green-100 bg-opacity-30;
+  }
+  
+  .detection-error {
+    @apply border-red-500 bg-red-100 bg-opacity-30;
+  }
+  
+  .detection-warning {
+    @apply border-yellow-500 bg-yellow-100 bg-opacity-30;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Dark mode optimizations for job sites */
+@media (prefers-color-scheme: dark) {
+  body {
+    @apply bg-dehn-dark text-white;
+  }
+  
+  .card {
+    @apply bg-gray-800 border-gray-700;
+  }
+  
+  .input-field {
+    @apply bg-gray-700 border-gray-600 text-white;
+  }
+}
+
+/* High contrast mode for outdoor visibility */
+.high-contrast {
+  filter: contrast(150%) brightness(120%);
+}
+
+/* Large touch targets for gloved hands */
+.touch-target {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Video player customizations */
+.video-js {
+  @apply rounded-lg overflow-hidden;
+}
+
+.video-js .vjs-big-play-button {
+  @apply bg-dehn-primary border-dehn-primary;
+}
+
+/* QR Scanner styles */
+.qr-scanner-container {
+  @apply relative overflow-hidden rounded-lg;
+}
+
+.qr-scanner-overlay {
+  @apply absolute inset-0 flex items-center justify-center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.qr-scanner-frame {
+  @apply border-2 border-white rounded-lg;
+  width: 250px;
+  height: 250px;
+}
+
+/* AI Chat styles */
+.ai-message {
+  @apply bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg mb-4;
+}
+
+.user-message {
+  @apply bg-gray-50 border-l-4 border-gray-500 p-4 rounded-r-lg mb-4;
+}
+
+/* Progress indicators */
+.progress-bar {
+  @apply w-full bg-gray-200 rounded-full h-2;
+}
+
+.progress-fill {
+  @apply bg-dehn-secondary h-2 rounded-full transition-all duration-300;
+}
+
+/* Responsive design for mobile devices */
+@media (max-width: 768px) {
+  .card {
+    @apply p-4;
+  }
+  
+  .btn-primary, .btn-secondary, .btn-accent {
+    @apply py-4 px-8 text-lg;
+  }
+  
+  .input-field {
+    @apply py-4 text-lg;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus styles for keyboard navigation */
+.focus-visible:focus {
+  @apply outline-none ring-2 ring-dehn-secondary ring-offset-2;
+}
