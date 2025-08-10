@@ -56,7 +56,7 @@ export default function VideoAgent({ productId, language, onResponse }: VideoAge
       return;
     }
 
-    const wsUrl = `ws://localhost:8000/ws/video-agent/${productId}`;
+    const wsUrl = `ws://localhost:8001/ws/video-agent/${productId}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {

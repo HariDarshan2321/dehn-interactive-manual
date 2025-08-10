@@ -28,6 +28,25 @@ const getProducts = () => productEmbeddingService.getAvailableProducts().map(pro
 // Legacy products for compatibility
 const DEHN_PRODUCTS = [
   {
+    id: 'dehnventil-m2',
+    name: 'DEHNventil M2 TNC 255 FM',
+    category: 'Surge Protection',
+    description: 'Type 1+2 surge protective device with integrated monitoring',
+    qrCode: 'DEHN-DEHNVENTIL-M2-2024',
+    manualUrl: '/pdfs/dehnventil-m2.pdf',
+    videoUrl: 'https://www.youtube.com/watch?v=gf25JFDuwx0',
+    imageUrl: '/images/products/dehnventil-m2.jpg',
+    estimatedInstallTime: '20 minutes',
+    difficultyLevel: 'Medium',
+    requiredTools: ['Phillips screwdriver', 'Wire strippers', 'Multimeter', 'Torque wrench'],
+    safetyWarnings: [
+      'Ensure power is disconnected before installation',
+      'Use appropriate PPE',
+      'Verify correct wire connections',
+      'Check monitoring system functionality'
+    ]
+  },
+  {
     id: 'surge_protector',
     name: 'TNC 255 Surge Protector',
     category: 'Surge Protection',
@@ -169,7 +188,7 @@ export async function GET(request: NextRequest) {
       data: {
         products,
         total: products.length,
-        categories: [...new Set(DEHN_PRODUCTS.map(p => p.category))]
+        categories: Array.from(new Set(DEHN_PRODUCTS.map(p => p.category)))
       }
     });
 

@@ -9,11 +9,11 @@ module.exports = {
     extend: {
       colors: {
         dehn: {
-          primary: '#003366',
-          secondary: '#0066CC',
+          primary: '#dc2626',
+          secondary: '#b91c1c',
           accent: '#FF6600',
-          dark: '#001122',
-          light: '#F5F8FA'
+          dark: '#1f2937',
+          light: '#ffffff'
         }
       },
       fontFamily: {

@@ -95,7 +95,7 @@ export default function LanguageSelector({ onLanguageSelected, productName }: La
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      <div className="card">
+      <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
         <div className="text-center mb-6">
           <h3 className="text-xl font-semibold text-gray-900 mb-2">
             {t('chooseLanguage')}
@@ -105,38 +105,40 @@ export default function LanguageSelector({ onLanguageSelected, productName }: La
           </p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          {LANGUAGES.map((language) => (
-            <button
-              key={language.code}
-              onClick={() => handleLanguageSelect(language.code)}
-              className={`
-                relative p-4 rounded-lg border-2 transition-all duration-200 touch-target
-                ${selectedLanguage === language.code
-                  ? 'border-dehn-primary bg-dehn-primary bg-opacity-10'
-                  : 'border-gray-200 hover:border-dehn-secondary'
-                }
-              `}
-            >
-              <div className="text-center">
-                <div className="text-3xl mb-2">{language.flag}</div>
-                <div className="font-semibold text-gray-900 mb-1">
-                  {language.nativeName}
+        <div className="bg-white rounded-lg p-6 border border-gray-200">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {LANGUAGES.map((language) => (
+              <button
+                key={language.code}
+                onClick={() => handleLanguageSelect(language.code)}
+                className={`
+                  relative p-4 rounded-lg border-2 transition-all duration-200 touch-target bg-white
+                  ${selectedLanguage === language.code
+                    ? 'border-red-600 bg-red-50'
+                    : 'border-gray-200 hover:border-red-300'
+                  }
+                `}
+              >
+                <div className="text-center">
+                  <div className="text-3xl mb-2">{language.flag}</div>
+                  <div className="font-semibold text-gray-900 mb-1">
+                    {language.nativeName}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {language.name}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-600">
-                  {language.name}
-                </div>
-              </div>
 
-              {selectedLanguage === language.code && (
-                <div className="absolute top-2 right-2">
-                  <svg className="h-5 w-5 text-dehn-primary" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              )}
-            </button>
-          ))}
+                {selectedLanguage === language.code && (
+                  <div className="absolute top-2 right-2">
+                    <svg className="h-5 w-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
         {selectedLanguage && (
@@ -159,7 +161,7 @@ export default function LanguageSelector({ onLanguageSelected, productName }: La
               <button
                 onClick={() => playVoicePreview(selectedLanguage)}
                 disabled={isPlaying === selectedLanguage}
-                className="btn-secondary flex items-center"
+                className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors flex items-center"
               >
                 {isPlaying === selectedLanguage ? (
                   <>
@@ -181,7 +183,7 @@ export default function LanguageSelector({ onLanguageSelected, productName }: La
 
             <button
               onClick={handleConfirm}
-              className="btn-primary w-full"
+              className="bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-lg font-semibold w-full transition-colors"
             >
               {t('continueWith')} {LANGUAGES.find(l => l.code === selectedLanguage)?.nativeName}
             </button>

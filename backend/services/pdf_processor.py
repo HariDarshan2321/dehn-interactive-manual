@@ -1,152 +1,190 @@
+"""
+PDF Processing Service for DEHN Interactive Manual
+Extracts text and images from PDF files using multimodal CLIP embeddings
+Based on the reference implementation for unified text/image processing
+"""
+
 import os
 import json
 import logging
 from typing import Dict, List, Any
 from datetime import datetime
 import asyncio
-
-import PyPDF2
-from pdf2image import convert_from_path
-from PIL import Image
 import base64
 import io
+
+# PDF processing
+import fitz  # PyMuPDF
+from PIL import Image
 import numpy as np
 
-from services.embedding_service import EmbeddingService
+# CLIP for multimodal embeddings
+from transformers import CLIPProcessor, CLIPModel
+import torch
 
 logger = logging.getLogger(__name__)
 
 class PDFProcessor:
     def __init__(self):
-        self.embedding_service = EmbeddingService()
+        # Initialize CLIP model for unified embeddings
+        self.clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+        self.clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        self.clip_model.eval()
+
         self.chunk_size = 500
-        self.chunk_overlap = 50
+        self.chunk_overlap = 100
+
+    def embed_image(self, image_data):
+        """Embed image using CLIP"""
+        if isinstance(image_data, str):  # If base64 string
+            image_bytes = base64.b64decode(image_data)
+            image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        elif isinstance(image_data, Image.Image):  # If PIL Image
+            image = image_data
+        else:
+            raise ValueError("Unsupported image data type")
+
+        inputs = self.clip_processor(images=image, return_tensors="pt")
+        with torch.no_grad():
+            features = self.clip_model.get_image_features(**inputs)
+            # Normalize embeddings to unit vector
+            features = features / features.norm(dim=-1, keepdim=True)
+            return features.squeeze().numpy()
+
+    def embed_text(self, text):
+        """Embed text using CLIP"""
+        inputs = self.clip_processor(
+            text=text,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=77  # CLIP's max token length
+        )
+        with torch.no_grad():
+            features = self.clip_model.get_text_features(**inputs)
+            # Normalize embeddings
+            features = features / features.norm(dim=-1, keepdim=True)
+            return features.squeeze().numpy()
 
     async def process_pdf(self, pdf_path: str, product_id: str, product_name: str) -> Dict[str, Any]:
-        """Process a PDF file and extract text and images with embeddings"""
+        """Process a PDF file and extract text and images with CLIP embeddings"""
         logger.info(f"Processing PDF: {pdf_path} for product {product_id}")
 
         try:
-            # Extract text content
-            text_documents = await self._extract_text_content(pdf_path, product_id)
+            # Open PDF with PyMuPDF
+            doc = fitz.open(pdf_path)
 
-            # Extract images
-            image_documents = await self._extract_images(pdf_path, product_id)
+            # Storage for all documents and embeddings
+            all_docs = []
+            all_embeddings = []
+            image_data_store = {}  # Store actual image data for LLM
 
-            # Generate embeddings for all documents
-            all_documents = text_documents + image_documents
+            # Process each page
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                # Process text
+                text = page.get_text()
+                if text.strip():
+                    # Split text into chunks
+                    text_chunks = self._split_text_into_chunks(text)
 
-            # Generate embeddings in batches
-            for doc in all_documents:
-                if doc["type"] == "text":
-                    doc["embedding"] = await self.embedding_service.generate_text_embedding(doc["content"])
-                elif doc["type"] == "image":
-                    doc["embedding"] = await self.embedding_service.generate_image_embedding(doc["image_data"])
+                    for chunk_idx, chunk in enumerate(text_chunks):
+                        # Create document
+                        doc_id = f"{product_id}_page_{page_num}_text_{chunk_idx}"
+                        text_doc = {
+                            "id": doc_id,
+                            "content": chunk,
+                            "type": "text",
+                            "page_number": page_num,
+                            "metadata": {
+                                "product_id": product_id,
+                                "product_name": product_name,
+                                "section": self._detect_section(chunk),
+                                "safety_level": self._detect_safety_level(chunk),
+                                "component_type": self._detect_component_type(chunk)
+                            }
+                        }
+
+                        # Generate CLIP embedding
+                        embedding = self.embed_text(chunk)
+                        text_doc["embedding"] = embedding.tolist()
+
+                        all_docs.append(text_doc)
+                        all_embeddings.append(embedding)
+
+                # Process images
+                for img_index, img in enumerate(page.get_images(full=True)):
+                    try:
+                        xref = img[0]
+                        base_image = doc.extract_image(xref)
+                        image_bytes = base_image["image"]
+
+                        # Convert to PIL Image
+                        pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+                        # Create unique identifier
+                        image_id = f"{product_id}_page_{page_num}_img_{img_index}"
+
+                        # Store image as base64 for later use with GPT-4V
+                        buffered = io.BytesIO()
+                        pil_image.save(buffered, format="PNG")
+                        img_base64 = base64.b64encode(buffered.getvalue()).decode()
+                        image_data_store[image_id] = img_base64
+
+                        # Create document for image
+                        image_doc = {
+                            "id": image_id,
+                            "content": f"[Image: {image_id} - Technical diagram from page {page_num}]",
+                            "type": "image",
+                            "page_number": page_num,
+                            "image_data": img_base64,
+                            "metadata": {
+                                "product_id": product_id,
+                                "product_name": product_name,
+                                "image_id": image_id,
+                                "width": pil_image.width,
+                                "height": pil_image.height,
+                                "format": "PNG"
+                            }
+                        }
+
+                        # Generate CLIP embedding for image
+                        embedding = self.embed_image(pil_image)
+                        image_doc["embedding"] = embedding.tolist()
+
+                        all_docs.append(image_doc)
+                        all_embeddings.append(embedding)
+
+                    except Exception as e:
+                        logger.warning(f"Error processing image {img_index} on page {page_num}: {e}")
+                        continue
+
+            total_pages = len(doc)
+            doc.close()
 
             result = {
                 "product_id": product_id,
                 "product_name": product_name,
-                "total_pages": len(set(doc["page_number"] for doc in all_documents)),
-                "documents": all_documents,
+                "total_pages": total_pages,
+                "documents": all_docs,
                 "embeddings": {
-                    "text_count": len(text_documents),
-                    "image_count": len(image_documents),
-                    "total_count": len(all_documents)
+                    "text_count": len([d for d in all_docs if d["type"] == "text"]),
+                    "image_count": len([d for d in all_docs if d["type"] == "image"]),
+                    "total_count": len(all_docs)
                 },
+                "image_data_store": image_data_store,
                 "processed_at": datetime.now().isoformat()
             }
 
             # Save processed data
             await self._save_processed_data(result, product_id)
 
-            logger.info(f"Successfully processed PDF for {product_id}: {len(all_documents)} documents")
+            logger.info(f"Successfully processed PDF for {product_id}: {len(all_docs)} documents")
             return result
 
         except Exception as e:
             logger.error(f"Error processing PDF {pdf_path}: {e}")
             raise
-
-    async def _extract_text_content(self, pdf_path: str, product_id: str) -> List[Dict[str, Any]]:
-        """Extract text content from PDF"""
-        documents = []
-
-        try:
-            with open(pdf_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-
-                for page_num, page in enumerate(pdf_reader.pages, 1):
-                    try:
-                        text = page.extract_text()
-
-                        if text.strip():
-                            # Split text into chunks
-                            chunks = self._split_text_into_chunks(text)
-
-                            for chunk_idx, chunk in enumerate(chunks):
-                                doc = {
-                                    "id": f"{product_id}_page_{page_num}_text_{chunk_idx}",
-                                    "content": chunk,
-                                    "type": "text",
-                                    "page_number": page_num,
-                                    "metadata": {
-                                        "section": self._detect_section(chunk),
-                                        "safety_level": self._detect_safety_level(chunk),
-                                        "component_type": self._detect_component_type(chunk)
-                                    }
-                                }
-                                documents.append(doc)
-
-                    except Exception as e:
-                        logger.warning(f"Error extracting text from page {page_num}: {e}")
-                        continue
-
-        except Exception as e:
-            logger.error(f"Error reading PDF file: {e}")
-            raise
-
-        return documents
-
-    async def _extract_images(self, pdf_path: str, product_id: str) -> List[Dict[str, Any]]:
-        """Extract images from PDF"""
-        documents = []
-
-        try:
-            # Convert PDF pages to images
-            images = convert_from_path(pdf_path, dpi=200)
-
-            for page_num, image in enumerate(images, 1):
-                try:
-                    # Convert PIL image to base64
-                    buffer = io.BytesIO()
-                    image.save(buffer, format='PNG')
-                    image_base64 = base64.b64encode(buffer.getvalue()).decode()
-
-                    # Check if image contains meaningful content
-                    if await self._is_meaningful_image(image):
-                        doc = {
-                            "id": f"{product_id}_page_{page_num}_image",
-                            "content": f"[Image: Page {page_num} - Technical diagram]",
-                            "type": "image",
-                            "page_number": page_num,
-                            "image_data": image_base64,
-                            "metadata": {
-                                "width": image.width,
-                                "height": image.height,
-                                "format": "PNG",
-                                "has_diagrams": True
-                            }
-                        }
-                        documents.append(doc)
-
-                except Exception as e:
-                    logger.warning(f"Error processing image from page {page_num}: {e}")
-                    continue
-
-        except Exception as e:
-            logger.error(f"Error extracting images from PDF: {e}")
-            # Continue without images if extraction fails
-
-        return documents
 
     def _split_text_into_chunks(self, text: str) -> List[str]:
         """Split text into overlapping chunks"""
@@ -194,7 +232,7 @@ class PDFProcessor:
         components = []
 
         component_keywords = {
-            'surge_protector': ['surge protector', 'spd', 'dehnguard'],
+            'surge_protector': ['surge protector', 'spd', 'dehnguard', 'dehnventil'],
             'terminal_block': ['terminal', 'connection block', 'connector'],
             'wire': ['wire', 'cable', 'conductor'],
             'ground': ['ground', 'earth', 'pe'],
@@ -207,30 +245,14 @@ class PDFProcessor:
 
         return ', '.join(components) if components else 'general'
 
-    async def _is_meaningful_image(self, image: Image.Image) -> bool:
-        """Check if image contains meaningful content (not just blank pages)"""
-        try:
-            # Convert to numpy array
-            img_array = np.array(image.convert('L'))  # Convert to grayscale
-
-            # Calculate variance (measure of content)
-            variance = np.var(img_array)
-
-            # If variance is too low, it's likely a blank page
-            return variance > 100  # Threshold for meaningful content
-
-        except Exception:
-            return True  # If we can't analyze, assume it's meaningful
-
     async def _save_processed_data(self, data: Dict[str, Any], product_id: str):
         """Save processed data to file"""
         try:
             output_dir = f"data/processed/{product_id}"
             os.makedirs(output_dir, exist_ok=True)
 
+            # Save main processed data (without embeddings for size)
             output_path = f"{output_dir}/processed_data.json"
-
-            # Create a serializable version (without binary data)
             serializable_data = {
                 "product_id": data["product_id"],
                 "product_name": data["product_name"],
@@ -243,7 +265,17 @@ class PDFProcessor:
             with open(output_path, 'w') as f:
                 json.dump(serializable_data, f, indent=2)
 
-            logger.info(f"Saved processed data to {output_path}")
+            # Save documents with embeddings separately
+            docs_path = f"{output_dir}/documents.json"
+            with open(docs_path, 'w') as f:
+                json.dump(data["documents"], f, indent=2)
+
+            # Save image data store
+            images_path = f"{output_dir}/images.json"
+            with open(images_path, 'w') as f:
+                json.dump(data["image_data_store"], f, indent=2)
+
+            logger.info(f"Saved processed data to {output_dir}")
 
         except Exception as e:
             logger.error(f"Error saving processed data: {e}")
@@ -273,6 +305,23 @@ class PDFProcessor:
                 })
 
         return results
+
+    def retrieve_multimodal(self, query: str, documents: List[Dict], k: int = 5) -> List[Dict]:
+        """Unified retrieval using CLIP embeddings for both text and images"""
+        # Embed query using CLIP
+        query_embedding = self.embed_text(query)
+
+        # Calculate similarities
+        similarities = []
+        for doc in documents:
+            if "embedding" in doc:
+                doc_embedding = np.array(doc["embedding"])
+                similarity = np.dot(query_embedding, doc_embedding)
+                similarities.append((similarity, doc))
+
+        # Sort by similarity and return top k
+        similarities.sort(key=lambda x: x[0], reverse=True)
+        return [doc for _, doc in similarities[:k]]
 
     async def update_product_pdf(self, product_id: str, new_pdf_path: str) -> Dict[str, Any]:
         """Update an existing product with a new PDF"""

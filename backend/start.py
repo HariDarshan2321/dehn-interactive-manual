@@ -13,6 +13,16 @@ from pathlib import Path
 backend_dir = Path(__file__).parent
 sys.path.insert(0, str(backend_dir))
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv(backend_dir / ".env")
+    print("✓ Loaded environment variables from .env file")
+except ImportError:
+    print("⚠️  python-dotenv not installed, loading environment variables from system")
+except Exception as e:
+    print(f"⚠️  Could not load .env file: {e}")
+
 def setup_logging():
     """Setup logging configuration"""
     log_dir = backend_dir / "logs"

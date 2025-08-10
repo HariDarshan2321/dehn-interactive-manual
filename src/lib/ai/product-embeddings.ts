@@ -21,8 +21,9 @@ export class ProductEmbeddingService {
   private productEmbeddings: Map<string, ProductEmbedding> = new Map();
   private loadingPromises: Map<string, Promise<void>> = new Map();
 
-  // 15 DEHN Products for demo
+  // 16 DEHN Products for demo (including new DEHNventil M2)
   private readonly PRODUCTS = [
+    { id: 'dehnventil-m2', name: 'DEHNventil M2 TNC 255 FM', manual: '/pdfs/dehnventil-m2.pdf' },
     { id: 'tnc-255', name: 'TNC 255 Surge Protector', manual: '/pdfs/tnc-255.pdf' },
     { id: 'dv-m2-255', name: 'DV M2 TNC 255 FM', manual: '/pdfs/dv-m2-255.pdf' },
     { id: 'blitzductor-xt', name: 'BLITZDUCTOR XT', manual: '/pdfs/blitzductor-xt.pdf' },
@@ -233,6 +234,58 @@ export class ProductEmbeddingService {
       name: product.name,
       isLoaded: this.productEmbeddings.get(product.id)?.isLoaded || false
     }));
+  }
+
+  async addProduct(product: { id: string; name: string; manualUrl: string }): Promise<void> {
+    // Add to products list
+    const existingIndex = this.PRODUCTS.findIndex(p => p.id === product.id);
+    if (existingIndex >= 0) {
+      this.PRODUCTS[existingIndex] = {
+        id: product.id,
+        name: product.name,
+        manual: product.manualUrl
+      };
+    } else {
+      this.PRODUCTS.push({
+        id: product.id,
+        name: product.name,
+        manual: product.manualUrl
+      });
+    }
+
+    // Initialize product embedding
+    this.productEmbeddings.set(product.id, {
+      productId: product.id,
+      productName: product.name,
+      documents: [],
+      isLoaded: false,
+      lastUpdated: new Date(),
+      manualPath: product.manualUrl,
+      totalPages: 0,
+      sections: {
+        safety: [],
+        installation: [],
+        wiring: [],
+        troubleshooting: [],
+        specifications: []
+      }
+    });
+
+    console.log(`✅ Added product: ${product.name} (${product.id})`);
+  }
+
+  async removeProduct(productId: string): Promise<void> {
+    // Remove from products list
+    const index = this.PRODUCTS.findIndex(p => p.id === productId);
+    if (index >= 0) {
+      this.PRODUCTS.splice(index, 1);
+    }
+
+    // Remove embeddings
+    this.productEmbeddings.delete(productId);
+    this.loadingPromises.delete(productId);
+
+    console.log(`🗑️ Removed product: ${productId}`);
   }
 
   async preloadAllProducts(): Promise<void> {
